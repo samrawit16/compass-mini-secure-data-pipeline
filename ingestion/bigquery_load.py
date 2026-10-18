@@ -1,21 +1,39 @@
 
-"""Load validated Compass Mini data into BigQuery."""
+"""Load and verify Compass Mini data in BigQuery."""
+
+import os
 
 from google.cloud import bigquery
 
-PROJECT_ID = "jaffle-shop-511913"
-DATASET_ID = "compass_mini"
+
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+DATASET_ID = os.getenv("BIGQUERY_DATASET", "compass_mini").strip()
+
+
+def _get_client() -> bigquery.Client:
+    """Create a BigQuery client after checking configuration."""
+    if not PROJECT_ID:
+        raise ValueError(
+            "Set the GOOGLE_CLOUD_PROJECT environment variable."
+        )
+
+    if not DATASET_ID:
+        raise ValueError(
+            "Set the BIGQUERY_DATASET environment variable."
+        )
+
+    return bigquery.Client(project=PROJECT_ID)
 
 
 def load_dataframe(dataframe, table_name: str) -> int:
-    """Load a DataFrame into BigQuery and return its row count."""
+    """Load a non-empty DataFrame into an empty BigQuery table."""
     if not table_name.replace("_", "").isalnum():
         raise ValueError("Invalid table name")
 
     if dataframe.empty:
         raise ValueError("Refusing to load an empty DataFrame")
 
-    client = bigquery.Client(project=PROJECT_ID)
+    client = _get_client()
     table_id = f"{PROJECT_ID}.{DATASET_ID}.{table_name}"
 
     job_config = bigquery.LoadJobConfig(
@@ -37,7 +55,10 @@ def load_dataframe(dataframe, table_name: str) -> int:
 
 def verify_bigquery_data(expected_rows: int = 5) -> None:
     """Verify row counts in the BigQuery grants and payments tables."""
-    client = bigquery.Client(project=PROJECT_ID)
+    if expected_rows < 0:
+        raise ValueError("Expected row count cannot be negative")
+
+    client = _get_client()
 
     for table_name in ("grants", "payments"):
         table_id = f"{PROJECT_ID}.{DATASET_ID}.{table_name}"
@@ -52,4 +73,3 @@ def verify_bigquery_data(expected_rows: int = 5) -> None:
             )
 
     print("BigQuery row-count verification passed.")
-
