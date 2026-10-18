@@ -1,0 +1,21 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+*service-account*.json
+*credentials*.json
+
+# Local database and generated data
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Google Cloud local credentials
+application_default_credentials.json

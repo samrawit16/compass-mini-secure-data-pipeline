@@ -1,0 +1,6 @@
+grant_id,organization,program,grant_amount,status
+G001,Green Future Initiative,Climate,50000,approved
+G002,Community Health Network,Health,30000,approved
+G003,Youth Learning Foundation,Education,20000,pending
+G004,Clean Water Partnership,Climate,40000,approved
+G005,Digital Skills Collective,Education,25000,pending
