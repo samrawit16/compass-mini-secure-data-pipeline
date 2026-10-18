@@ -36,6 +36,7 @@ flowchart TD
 - Google Cloud Python client
 - pytest
 - uv
+- pyarrow
 
 ## Project Structure
 
@@ -46,6 +47,7 @@ compass-mini-secure-data-pipeline/
 │       ├── grants.csv
 │       └── payments.csv
 ├── ingestion/
+│   ├── __init__.py
 │   ├── extract.py
 │   ├── validate.py
 │   ├── load.py
@@ -76,19 +78,30 @@ uv pip install pandas pytest python-dotenv google-cloud-bigquery pyarrow
 
 ### 3. Configure Google Cloud authentication
 
-Install the Google Cloud CLI and authenticate using Application Default Credentials:
+Install the Google Cloud CLI, then authenticate using Application Default Credentials:
 
 ```bash
 gcloud auth application-default login
 ```
 
-The authenticated account needs permission to create and load tables in the target BigQuery dataset.
+The authenticated account needs the permissions required to access the target BigQuery dataset and load tables.
 
 Do not commit access tokens, credential files, or secrets to Git.
 
 ### 4. Configure BigQuery
 
-Update the project and dataset constants in `ingestion/bigquery_load.py` for your own Google Cloud environment. The configured dataset must exist, and its location must match the loader configuration.
+Set the Google Cloud project ID and dataset name through environment variables:
+
+```bash
+export GOOGLE_CLOUD_PROJECT="your-google-cloud-project-id"
+export BIGQUERY_DATASET="your_dataset_name"
+```
+
+Replace the example values with your own Google Cloud project ID and dataset name when running the project.
+
+The dataset must already exist, and its location must match the location configured in `ingestion/bigquery_load.py`. The current implementation uses the `EU` location.
+
+The loader uses Google Cloud Application Default Credentials for authentication. It does not require access tokens to be stored in source code.
 
 ## Run the Tests
 
@@ -96,7 +109,9 @@ Update the project and dataset constants in `ingestion/bigquery_load.py` for you
 python -m pytest -v
 ```
 
-The project currently has eight passing tests, including validation tests and a BigQuery dataset connectivity test.
+The project currently has eight passing tests, including input validation tests and a BigQuery dataset connectivity test.
+
+The BigQuery connectivity test requires valid Google Cloud authentication and access to the configured dataset.
 
 ## Run the Pipeline
 
@@ -104,11 +119,15 @@ The project currently has eight passing tests, including validation tests and a 
 python -m ingestion.run_pipeline
 ```
 
-The pipeline loads data into SQLite and BigQuery. The BigQuery loader uses `WRITE_EMPTY`, which prevents overwriting a destination table that already contains data. For repeatable runs, design a separate idempotent loading strategy before rerunning against populated tables.
+The pipeline validates the sample data, loads it into SQLite, verifies the local database, loads the records into BigQuery, and verifies the BigQuery row counts.
+
+The BigQuery loader uses `WRITE_EMPTY`, which prevents a load job from overwriting a destination table that already contains data. Because the destination tables already exist after a successful run, the same load operation is not automatically repeatable.
+
+For repeatable production runs, implement and test an appropriate idempotent loading strategy.
 
 ## Verify BigQuery Row Counts
 
-The verification function checks that the grants and payments tables contain five rows each:
+The verification function checks that the `grants` and `payments` tables each contain five rows:
 
 ```bash
 python -c "from ingestion.bigquery_load import verify_bigquery_data; verify_bigquery_data()"
@@ -126,28 +145,8 @@ BigQuery row-count verification passed.
 
 - Validate input data before loading.
 - Keep virtual environments and local database files out of Git.
-- Exclude environment files and common credential files using `.gitignore`.
+- Exclude environment files and credential files using `.gitignore`.
 - Use Google Cloud Application Default Credentials instead of hardcoding access tokens.
+- Use environment variables for project configuration.
 - Grant only the cloud permissions needed by the pipeline.
-- Use synthetic sample data for development.
-
-## Current Results
-
-- 5 grant records loaded into SQLite.
-- 5 payment records loaded into SQLite.
-- 5 grant records loaded into BigQuery.
-- 5 payment records loaded into BigQuery.
-- 8 automated tests passing.
-- BigQuery row-count verification successful.
-
-## Future Improvements
-
-- Add structured logging and clearer error handling.
-- Add schema and data-quality checks for BigQuery.
-- Add automated tests for the BigQuery loader using mocks.
-- Add CI checks for tests and formatting.
-- Introduce an idempotent loading strategy for repeatable pipeline runs.
-
-## Disclaimer
-
-This is a portfolio demonstration using synthetic data. It is not intended for production use without additional security, monitoring, access-control, and operational safeguards.
+- Use synthetic sample data during development
